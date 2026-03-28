@@ -27,7 +27,6 @@ $BSG_STL/bsg_misc/bsg_priority_encode.sv
 $BSG_STL/bsg_misc/bsg_expand_bitmask.sv
 $BSG_STL/bsg_misc/bsg_crossbar_o_by_i.sv
 $BSG_STL/bsg_misc/bsg_circular_ptr.sv
-$BSG_STL/bsg_misc/bsg_counter_clear_up_synth.sv
 $BSG_STL/bsg_misc/bsg_counter_clear_up.sv
 $BSG_STL/bsg_misc/bsg_lru_pseudo_tree_decode.sv
 $BSG_STL/bsg_misc/bsg_lru_pseudo_tree_encode.sv

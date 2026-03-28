@@ -250,21 +250,13 @@ module testbench();
   end
 
   // -------------------------------------------------------
-  // Optional: VCD dump
+  // FSDB dump
   // -------------------------------------------------------
+`ifdef FSDB
   initial begin
-    integer wave;
-    wave = 0;
-    void'($value$plusargs("wave=%d", wave));
-    if (wave) begin
-`ifdef VERILATOR
-      $dumpfile("dump.fst");
-      $dumpvars(0, testbench);
-`else
-      $vcdpluson;
-      $vcdplusautoflushon;
-`endif
-    end
+    $fsdbDumpfile("bsg_cache_l1_pwr.fsdb");
+    $fsdbDumpvars("+all");
   end
+`endif
 
 endmodule

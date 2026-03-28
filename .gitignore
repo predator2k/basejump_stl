@@ -12,3 +12,6 @@ ucli.key
 .nfs*
 *.pyc
 libdramsim3.so
+verdiLog
+novas.conf
+*.fsdb
