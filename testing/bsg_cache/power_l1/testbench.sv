@@ -4,11 +4,13 @@
  *  L1: 64KB, 4-way, 64B cacheline, 256 sets
  *
  *  Phases:
- *    0. TAGST   - invalidate all tag entries (required for correct simulation)
- *    1. WARMUP  - sequential stores to fill cache (compulsory misses)
- *    2. WRITE   - stores to same addresses (all hits)
- *    3. READ    - loads from same addresses (all hits)
- *    4. IDLE    - no operations, clock free-running
+ *    0. TAGST       - invalidate all tag entries (required for correct simulation)
+ *    1. WARMUP      - sequential stores to fill cache (compulsory misses)
+ *    2. EVICT       - conflict stores to set 0, forcing evictions through dma_data_o
+ *    3. RE_WARMUP   - re-store evicted lines to restore cache for measurement
+ *    4. WRITE       - stores to same addresses (all hits)
+ *    5. READ        - loads from same addresses (all hits)
+ *    6. IDLE        - no operations, clock free-running
  *
  *  Fully synchronous stimulus (state machine) to avoid Verilog race conditions.
  */
@@ -30,9 +32,17 @@ module testbench();
   localparam word_tracking_p         = 0;
 
   localparam num_lines_lp            = sets_p * ways_p;
+  localparam num_warmup_lines_lp     = num_lines_lp;
   localparam cacheline_bytes_lp      = block_size_in_words_p * (data_width_p / 8);
 
-  localparam dma_els_lp              = num_lines_lp * block_size_in_words_p;
+  // Eviction parameters: stores to set 0 with tags beyond warmup range
+  // warmup fills tags 0..(num_warmup/sets-1) per set; we continue from there
+  localparam warmup_ways_per_set_lp  = num_warmup_lines_lp / sets_p;
+  localparam num_evict_ops_lp        = ways_p - warmup_ways_per_set_lp + 1;
+  localparam evict_stride_lp         = sets_p * cacheline_bytes_lp;
+
+  // DMA backing memory: cover warmup range + eviction addresses
+  localparam dma_els_lp              = (num_lines_lp + 1) * block_size_in_words_p;
 
   localparam num_write_ops_lp        = 1024;
   localparam num_read_ops_lp         = 1024;
@@ -146,7 +156,7 @@ module testbench();
   assign yumi_li = v_lo;
 
   // -------------------------------------------------------
-  // DMA model (zero delay for fast warmup)
+  // DMA model
   // -------------------------------------------------------
   bsg_nonsynth_dma_model #(
     .addr_width_p(addr_width_p)
@@ -184,6 +194,10 @@ module testbench();
     TAGST_DRAIN,
     WARMUP,
     WARMUP_GAP,
+    EVICT,
+    EVICT_GAP,
+    RE_WARMUP,
+    RE_WARMUP_GAP,
     WRITE,
     WRITE_GAP,
     READ,
@@ -261,7 +275,7 @@ module testbench();
         v_li = 1'b1;
         if (yumi_lo) begin
           send_cnt_n = send_cnt_r + 1;
-          if (op_cnt_r == num_lines_lp - 1) begin
+          if (op_cnt_r == num_warmup_lines_lp - 1) begin
             phase_n  = WARMUP_GAP;
             gap_cnt_n = 0;
           end else begin
@@ -272,6 +286,58 @@ module testbench();
 
       WARMUP_GAP: begin
         if (gap_cnt_r >= phase_gap_cycles_lp - 1) begin
+          phase_n  = EVICT;
+          op_cnt_n = 0;
+        end else begin
+          gap_cnt_n = gap_cnt_r + 1;
+        end
+      end
+
+      // Store to set 0 with new tags to force evictions through dma_data_o
+      EVICT: begin
+        cache_pkt.opcode = SD;
+        cache_pkt.addr   = addr_width_p'((warmup_ways_per_set_lp + op_cnt_r) * evict_stride_lp);
+        cache_pkt.data   = 64'hCAFE_0000 + op_cnt_r;
+        cache_pkt.mask   = '1;
+        v_li = 1'b1;
+        if (yumi_lo) begin
+          if (op_cnt_r == num_evict_ops_lp - 1) begin
+            phase_n  = EVICT_GAP;
+            gap_cnt_n = 0;
+          end else begin
+            op_cnt_n = op_cnt_r + 1;
+          end
+        end
+      end
+
+      EVICT_GAP: begin
+        if (gap_cnt_r >= phase_gap_cycles_lp - 1) begin
+          phase_n  = RE_WARMUP;
+          op_cnt_n = 0;
+        end else begin
+          gap_cnt_n = gap_cnt_r + 1;
+        end
+      end
+
+      // Re-store evicted lines in set 0 to restore cache to fully-warmed state
+      RE_WARMUP: begin
+        cache_pkt.opcode = SD;
+        cache_pkt.addr   = addr_width_p'(op_cnt_r * evict_stride_lp);
+        cache_pkt.data   = 64'hDEAD_0000 + op_cnt_r * sets_p;
+        cache_pkt.mask   = '1;
+        v_li = 1'b1;
+        if (yumi_lo) begin
+          if (op_cnt_r == num_evict_ops_lp - 1) begin
+            phase_n  = RE_WARMUP_GAP;
+            gap_cnt_n = 0;
+          end else begin
+            op_cnt_n = op_cnt_r + 1;
+          end
+        end
+      end
+
+      RE_WARMUP_GAP: begin
+        if (gap_cnt_r >= phase_gap_cycles_lp - 1) begin
           phase_n  = WRITE;
           op_cnt_n = 0;
         end else begin
@@ -281,7 +347,7 @@ module testbench();
 
       WRITE: begin
         cache_pkt.opcode = SD;
-        cache_pkt.addr   = addr_width_p'((op_cnt_r % num_lines_lp) * cacheline_bytes_lp);
+        cache_pkt.addr   = addr_width_p'((op_cnt_r % num_warmup_lines_lp) * cacheline_bytes_lp);
         cache_pkt.data   = 64'hBEEF_0000 + op_cnt_r;
         cache_pkt.mask   = '1;
         v_li = 1'b1;
@@ -307,7 +373,7 @@ module testbench();
 
       READ: begin
         cache_pkt.opcode = LD;
-        cache_pkt.addr   = addr_width_p'((op_cnt_r % num_lines_lp) * cacheline_bytes_lp);
+        cache_pkt.addr   = addr_width_p'((op_cnt_r % num_warmup_lines_lp) * cacheline_bytes_lp);
         cache_pkt.data   = '0;
         cache_pkt.mask   = '0;
         v_li = 1'b1;
@@ -339,10 +405,7 @@ module testbench();
         end
       end
 
-      DONE: begin
-        // stay here
-      end
-
+      DONE: ;
       default: phase_n = RESET_WAIT;
     endcase
 
@@ -379,10 +442,14 @@ module testbench();
   always_ff @(posedge clk) begin
     if (!reset) begin
       if (phase_r == TAGST_DRAIN && phase_n == WARMUP)
-        $display("[PHASE_WARMUP_START] cycle=%0d  lines=%0d", cycle_cnt, num_lines_lp);
+        $display("[PHASE_WARMUP_START] cycle=%0d  lines=%0d", cycle_cnt, num_warmup_lines_lp);
       if (phase_r == WARMUP && phase_n == WARMUP_GAP)
         $display("[PHASE_WARMUP_END]   cycle=%0d  sent=%0d recv=%0d", cycle_cnt, send_cnt_n, recv_cnt_n);
-      if (phase_r == WARMUP_GAP && phase_n == WRITE)
+      if (phase_r == WARMUP_GAP && phase_n == EVICT)
+        $display("[PHASE_EVICT_START]  cycle=%0d  ops=%0d", cycle_cnt, num_evict_ops_lp);
+      if (phase_r == EVICT && phase_n == EVICT_GAP)
+        $display("[PHASE_EVICT_END]    cycle=%0d", cycle_cnt);
+      if (phase_r == RE_WARMUP_GAP && phase_n == WRITE)
         $display("[PHASE_WRITE_START]  cycle=%0d  ops=%0d", cycle_cnt, num_write_ops_lp);
       if (phase_r == WRITE && phase_n == WRITE_GAP)
         $display("[PHASE_WRITE_END]    cycle=%0d  sent=%0d recv=%0d", cycle_cnt, send_cnt_n, recv_cnt_n);
@@ -410,12 +477,20 @@ module testbench();
   // -------------------------------------------------------
   // Read data monitor (first few responses per phase)
   // -------------------------------------------------------
+  integer phase_resp_cnt_r;
+  always_ff @(posedge clk) begin
+    if (reset)
+      phase_resp_cnt_r <= 0;
+    else if (phase_r != phase_n)
+      phase_resp_cnt_r <= 0;
+    else if (v_lo && yumi_li)
+      phase_resp_cnt_r <= phase_resp_cnt_r + 1;
+  end
+
   always_ff @(posedge clk) begin
     if (!reset && v_lo && yumi_li) begin
-      if (recv_cnt_r < 5
-          || (recv_cnt_r >= num_lines_lp && recv_cnt_r < num_lines_lp+5)
-          || (recv_cnt_r >= num_lines_lp+num_write_ops_lp && recv_cnt_r < num_lines_lp+num_write_ops_lp+5))
-        $display("  [RESP] #%0d data=0x%016h cycle=%0d", recv_cnt_r, data_lo, cycle_cnt);
+      if (phase_resp_cnt_r < 5 && (phase_r == WARMUP || phase_r == WRITE || phase_r == READ || phase_r == EVICT))
+        $display("  [RESP] #%0d data=0x%016h cycle=%0d phase=%s", phase_resp_cnt_r, data_lo, cycle_cnt, phase_r.name());
     end
   end
 
