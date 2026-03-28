@@ -209,6 +209,16 @@ module testbench();
   integer reset_wait_r, reset_wait_n;
   logic finish_r;
 
+  // 64-bit LFSR for random write data (maximal-length, taps at 64,63,61,60)
+  logic [63:0] lfsr_r;
+  wire lfsr_feedback = lfsr_r[63] ^ lfsr_r[62] ^ lfsr_r[60] ^ lfsr_r[59];
+  always_ff @(posedge clk) begin
+    if (reset)
+      lfsr_r <= 64'hA5A5_DEAD_BEEF_CAFE;
+    else if (yumi_lo)
+      lfsr_r <= {lfsr_r[62:0], lfsr_feedback};
+  end
+
   wire [lg_ways_lp-1:0] tagst_way = op_cnt_r[lg_sets_lp+:lg_ways_lp];
   wire [lg_sets_lp-1:0]  tagst_set = op_cnt_r[0+:lg_sets_lp];
   wire [addr_width_p-1:0] tagst_addr = (addr_width_p'(tagst_way) << way_offset_width_lp)
@@ -242,7 +252,7 @@ module testbench();
       WARMUP: begin
         cache_pkt.opcode = SD;
         cache_pkt.addr = addr_width_p'(op_cnt_r * cacheline_bytes_lp);
-        cache_pkt.data = 64'hDEAD_0000 + op_cnt_r; cache_pkt.mask = '1; v_li = 1'b1;
+        cache_pkt.data = lfsr_r; cache_pkt.mask = '1; v_li = 1'b1;
         if (yumi_lo) begin
           send_cnt_n = send_cnt_r + 1;
           if (op_cnt_r == num_warmup_lines_lp - 1) begin phase_n = WARMUP_GAP; gap_cnt_n = 0; end
@@ -258,7 +268,7 @@ module testbench();
       EVICT: begin
         cache_pkt.opcode = SD;
         cache_pkt.addr = addr_width_p'((warmup_ways_per_set_lp + op_cnt_r) * evict_stride_lp);
-        cache_pkt.data = 64'hCAFE_0000 + op_cnt_r; cache_pkt.mask = '1; v_li = 1'b1;
+        cache_pkt.data = lfsr_r; cache_pkt.mask = '1; v_li = 1'b1;
         if (yumi_lo) begin
           if (op_cnt_r == num_evict_ops_lp - 1) begin phase_n = EVICT_GAP; gap_cnt_n = 0; end
           else op_cnt_n = op_cnt_r + 1;
@@ -273,7 +283,7 @@ module testbench();
       RE_WARMUP: begin
         cache_pkt.opcode = SD;
         cache_pkt.addr = addr_width_p'(op_cnt_r * evict_stride_lp);
-        cache_pkt.data = 64'hDEAD_0000 + op_cnt_r * sets_p; cache_pkt.mask = '1; v_li = 1'b1;
+        cache_pkt.data = lfsr_r * sets_p; cache_pkt.mask = '1; v_li = 1'b1;
         if (yumi_lo) begin
           if (op_cnt_r == num_evict_ops_lp - 1) begin phase_n = RE_WARMUP_GAP; gap_cnt_n = 0; end
           else op_cnt_n = op_cnt_r + 1;
@@ -288,7 +298,7 @@ module testbench();
       WRITE: begin
         cache_pkt.opcode = SD;
         cache_pkt.addr = addr_width_p'((op_cnt_r % num_warmup_lines_lp) * cacheline_bytes_lp);
-        cache_pkt.data = 64'hBEEF_0000 + op_cnt_r; cache_pkt.mask = '1; v_li = 1'b1;
+        cache_pkt.data = lfsr_r; cache_pkt.mask = '1; v_li = 1'b1;
         if (yumi_lo) begin
           send_cnt_n = send_cnt_r + 1;
           if (op_cnt_r == num_write_ops_lp - 1) begin phase_n = WRITE_GAP; gap_cnt_n = 0; end
@@ -327,6 +337,31 @@ module testbench();
     endcase
 
     if (v_lo & yumi_li) recv_cnt_n = recv_cnt_r + 1;
+  end
+
+  // -------------------------------------------------------
+  // High-level operation type (for power annotation)
+  // -------------------------------------------------------
+  typedef enum logic [2:0] {
+    OP_INIT,
+    OP_WARMUP,
+    OP_WRITE,
+    OP_READ,
+    OP_IDLE
+  } op_type_e;
+
+  op_type_e op_type;
+
+  always_comb begin
+    case (phase_r)
+      RESET_WAIT, TAGST_INIT, TAGST_DRAIN,
+      EVICT, EVICT_GAP, RE_WARMUP, RE_WARMUP_GAP: op_type = OP_INIT;
+      WARMUP, WARMUP_GAP:                          op_type = OP_WARMUP;
+      WRITE, WRITE_GAP:                            op_type = OP_WRITE;
+      READ, READ_GAP:                              op_type = OP_READ;
+      IDLE, DONE:                                  op_type = OP_IDLE;
+      default:                                     op_type = OP_INIT;
+    endcase
   end
 
   always_ff @(posedge clk) begin
