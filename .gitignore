@@ -15,3 +15,4 @@ libdramsim3.so
 verdiLog
 novas.conf
 *.fsdb
+*.daidir
