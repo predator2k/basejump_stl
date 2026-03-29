@@ -1,8 +1,7 @@
 /**
  *  testbench.sv - L2 Cache+SPM Power Evaluation
  *
- *  L2: 512KB, 8-way, 64B cacheline, 1024 sets
- *  Uses bsg_cache_sp with per-way scratchpad support.
+ *  Instantiates bsg_cache_l2_spm (L2 top with scratchpad).
  *
  *  Phases:
  *    0. TAGST       - invalidate all tag entries
@@ -11,8 +10,8 @@
  *    3. RE_WARMUP   - re-store evicted lines to restore cache
  *    4. WRITE       - stores to cached addresses (all hits)
  *    5. READ        - loads from cached addresses (all hits)
- *    6. SPM_WRITE   - direct SRAM writes to scratchpad banks (way 0)
- *    7. SPM_READ    - direct SRAM reads from scratchpad banks (way 0)
+ *    6. SPM_WRITE   - direct SRAM writes to scratchpad bank 0
+ *    7. SPM_READ    - direct SRAM reads from scratchpad bank 0
  *    8. IDLE        - no operations, clock free-running
  */
 
@@ -23,7 +22,7 @@ module testbench();
   import bsg_cache_pkg::*;
 
   // -------------------------------------------------------
-  // Parameters
+  // Parameters  (must match bsg_cache_l2_spm defaults)
   // -------------------------------------------------------
   localparam addr_width_p            = 40;
   localparam data_width_p            = 64;
@@ -36,31 +35,28 @@ module testbench();
   localparam sp_way_lp               = 0;
 
   localparam num_lines_lp            = sets_p * ways_p;
-  // Warm up ways 1..7 only (way 0 reserved for SPM later)
   localparam num_warmup_lines_lp     = sets_p * (ways_p - 1);
   localparam cacheline_bytes_lp      = block_size_in_words_p * (data_width_p / 8);
 
-  // Eviction parameters (based on warmed-up ways)
   localparam warmup_ways_per_set_lp  = num_warmup_lines_lp / sets_p;
   localparam num_evict_ops_lp        = 1;
   localparam evict_stride_lp         = sets_p * cacheline_bytes_lp;
 
-  // DMA backing memory
   localparam dma_els_lp              = (num_lines_lp + 1) * block_size_in_words_p;
 
   localparam num_write_ops_lp        = 2048;
   localparam num_read_ops_lp         = 2048;
 
-  // SPM parameters: each bank has sets*burst_len entries
-  localparam data_mem_els_lp         = sets_p * block_size_in_words_p;
-  localparam lg_data_mem_els_lp      = `BSG_SAFE_CLOG2(data_mem_els_lp);
-  localparam dma_data_mask_width_lp  = (data_width_p >> 3);
+  // SPM bank geometry
+  localparam sp_bank_els_lp          = sets_p * block_size_in_words_p;
+  localparam lg_sp_bank_els_lp       = `BSG_SAFE_CLOG2(sp_bank_els_lp);
+  localparam sp_mask_width_lp        = (data_width_p >> 3);
   localparam num_spm_ops_lp          = 4096;
 
   localparam num_idle_cycles_lp      = 500;
   localparam phase_gap_cycles_lp     = 100;
 
-  // Address field widths for TAGST addressing
+  // TAGST addressing helpers
   localparam lg_data_mask_width_lp   = `BSG_SAFE_CLOG2(data_width_p>>3);
   localparam lg_block_size_lp        = `BSG_SAFE_CLOG2(block_size_in_words_p);
   localparam block_offset_width_lp   = lg_data_mask_width_lp + lg_block_size_lp;
@@ -90,10 +86,8 @@ module testbench();
 
   integer cycle_cnt;
   always_ff @(posedge clk) begin
-    if (reset)
-      cycle_cnt <= 0;
-    else
-      cycle_cnt <= cycle_cnt + 1;
+    if (reset) cycle_cnt <= 0;
+    else       cycle_cnt <= cycle_cnt + 1;
   end
 
   // -------------------------------------------------------
@@ -102,41 +96,33 @@ module testbench();
   `declare_bsg_cache_pkt_s(addr_width_p, data_width_p);
   bsg_cache_pkt_s cache_pkt;
 
-  logic v_li;
-  logic yumi_lo;
-
+  logic v_li, yumi_lo;
   logic [data_width_p-1:0] data_lo;
-  logic v_lo;
-  logic yumi_li;
+  logic v_lo, yumi_li;
 
   `declare_bsg_cache_dma_pkt_s(addr_width_p, block_size_in_words_p);
   bsg_cache_dma_pkt_s dma_pkt;
-  logic dma_pkt_v_lo;
-  logic dma_pkt_yumi_li;
+  logic dma_pkt_v_lo, dma_pkt_yumi_li;
 
   logic [data_width_p-1:0] dma_data_li;
-  logic dma_data_v_li;
-  logic dma_data_ready_and_lo;
+  logic dma_data_v_li, dma_data_ready_and_lo;
 
   logic [data_width_p-1:0] dma_data_lo;
-  logic dma_data_v_lo;
-  logic dma_data_yumi_li;
+  logic dma_data_v_lo, dma_data_yumi_li;
+
+  // Scratchpad signals
+  logic [ways_p-1:0]                           sp_en;
+  logic [ways_p-1:0]                           sp_v;
+  logic [ways_p-1:0]                           sp_w;
+  logic [ways_p-1:0][lg_sp_bank_els_lp-1:0]   sp_addr;
+  logic [ways_p-1:0][data_width_p-1:0]         sp_wdata;
+  logic [ways_p-1:0][sp_mask_width_lp-1:0]     sp_w_mask;
+  logic [ways_p-1:0][data_width_p-1:0]         sp_rdata;
 
   // -------------------------------------------------------
-  // Scratchpad interface signals
+  // DUT: bsg_cache_l2_spm
   // -------------------------------------------------------
-  logic [ways_p-1:0]                                sp_en;
-  logic [ways_p-1:0]                                sp_v;
-  logic [ways_p-1:0]                                sp_w;
-  logic [ways_p-1:0][lg_data_mem_els_lp-1:0]        sp_addr;
-  logic [ways_p-1:0][data_width_p-1:0]              sp_wdata;
-  logic [ways_p-1:0][dma_data_mask_width_lp-1:0]    sp_w_mask;
-  logic [ways_p-1:0][data_width_p-1:0]              sp_rdata;
-
-  // -------------------------------------------------------
-  // DUT  (bsg_cache_sp: cache with per-way scratchpad)
-  // -------------------------------------------------------
-  bsg_cache_sp #(
+  bsg_cache_l2_spm #(
     .addr_width_p(addr_width_p)
     ,.data_width_p(data_width_p)
     ,.block_size_in_words_p(block_size_in_words_p)
@@ -167,8 +153,6 @@ module testbench();
     ,.dma_data_o(dma_data_lo)
     ,.dma_data_v_o(dma_data_v_lo)
     ,.dma_data_yumi_i(dma_data_yumi_li)
-
-    ,.v_we_o()
 
     ,.sp_en_i(sp_en)
     ,.sp_v_i(sp_v)
@@ -244,58 +228,39 @@ module testbench();
   integer reset_wait_r, reset_wait_n;
   logic finish_r;
 
-  // 64-bit LFSR for random data (maximal-length, taps at 64,63,61,60)
+  // 64-bit LFSR for random data
   logic [63:0] lfsr_r;
   wire lfsr_feedback = lfsr_r[63] ^ lfsr_r[62] ^ lfsr_r[60] ^ lfsr_r[59];
+  wire lfsr_advance  = yumi_lo | (phase_r == SPM_WRITE) | (phase_r == SPM_READ);
 
-  // LFSR advances on cache yumi OR during SPM write (every cycle)
-  wire lfsr_advance = yumi_lo
-                    | (phase_r == SPM_WRITE)
-                    | (phase_r == SPM_READ);
   always_ff @(posedge clk) begin
-    if (reset)
-      lfsr_r <= 64'hA5A5_DEAD_BEEF_CAFE;
-    else if (lfsr_advance)
-      lfsr_r <= {lfsr_r[62:0], lfsr_feedback};
+    if (reset)            lfsr_r <= 64'hA5A5_DEAD_BEEF_CAFE;
+    else if (lfsr_advance) lfsr_r <= {lfsr_r[62:0], lfsr_feedback};
   end
 
   // TAGST addressing
-  wire [lg_ways_lp-1:0] tagst_way = op_cnt_r[lg_sets_lp+:lg_ways_lp];
-  wire [lg_sets_lp-1:0]  tagst_set = op_cnt_r[0+:lg_sets_lp];
+  wire [lg_ways_lp-1:0]   tagst_way  = op_cnt_r[lg_sets_lp+:lg_ways_lp];
+  wire [lg_sets_lp-1:0]   tagst_set  = op_cnt_r[0+:lg_sets_lp];
   wire [addr_width_p-1:0] tagst_addr = (addr_width_p'(tagst_way) << way_offset_width_lp)
                                       | (addr_width_p'(tagst_set) << block_offset_width_lp);
 
-  // Warmup addresses skip way 0 region: start from way 1
+  // Warmup addresses: skip way-0 region, start from way 1
   wire [addr_width_p-1:0] warmup_addr = addr_width_p'((1 * sets_p + op_cnt_r) * cacheline_bytes_lp);
 
-  // -------------------------------------------------------
-  // SPM read data capture (1-cycle latency from bsg_mem_1rw_sync)
-  // -------------------------------------------------------
-  logic        spm_rd_valid_r;
-  logic [63:0] spm_rd_expect_r;
-
+  // SPM read capture (1-cycle SRAM latency)
+  logic spm_rd_valid_r;
   always_ff @(posedge clk) begin
-    if (reset) begin
-      spm_rd_valid_r  <= 1'b0;
-      spm_rd_expect_r <= '0;
-    end else begin
-      // SPM read was issued last cycle => data available this cycle
-      spm_rd_valid_r  <= (phase_r == SPM_READ);
-      spm_rd_expect_r <= lfsr_r;
-    end
+    if (reset) spm_rd_valid_r <= 1'b0;
+    else       spm_rd_valid_r <= (phase_r == SPM_READ);
   end
 
   // -------------------------------------------------------
-  // Combinational next-state + output logic
+  // Combinational next-state + output
   // -------------------------------------------------------
   always_comb begin
     phase_n = phase_r; op_cnt_n = op_cnt_r; gap_cnt_n = gap_cnt_r;
     send_cnt_n = send_cnt_r; recv_cnt_n = recv_cnt_r; reset_wait_n = reset_wait_r;
-
-    // Default: cache interface idle
     v_li = 1'b0; cache_pkt = '0;
-
-    // Default: SPM interface idle, all ways in cache mode
     sp_en = '0; sp_v = '0; sp_w = '0; sp_addr = '0; sp_wdata = '0; sp_w_mask = '0;
 
     case (phase_r)
@@ -396,14 +361,12 @@ module testbench();
         else gap_cnt_n = gap_cnt_r + 1;
       end
 
-      // -------------------------------------------------------
-      // SPM WRITE: write random data to bank[sp_way_lp] every cycle
-      // -------------------------------------------------------
+      // ----- SPM WRITE -----
       SPM_WRITE: begin
         sp_en[sp_way_lp]     = 1'b1;
         sp_v[sp_way_lp]      = 1'b1;
         sp_w[sp_way_lp]      = 1'b1;
-        sp_addr[sp_way_lp]   = op_cnt_r[0+:lg_data_mem_els_lp];
+        sp_addr[sp_way_lp]   = op_cnt_r[0+:lg_sp_bank_els_lp];
         sp_wdata[sp_way_lp]  = lfsr_r;
         sp_w_mask[sp_way_lp] = '1;
         if (op_cnt_r == num_spm_ops_lp - 1) begin phase_n = SPM_WRITE_GAP; gap_cnt_n = 0; end
@@ -411,20 +374,17 @@ module testbench();
       end
 
       SPM_WRITE_GAP: begin
-        // Keep SPM enabled during gap so bank stays in scratchpad mode
         sp_en[sp_way_lp] = 1'b1;
         if (gap_cnt_r >= phase_gap_cycles_lp - 1) begin phase_n = SPM_READ; op_cnt_n = 0; end
         else gap_cnt_n = gap_cnt_r + 1;
       end
 
-      // -------------------------------------------------------
-      // SPM READ: read from bank[sp_way_lp] every cycle
-      // -------------------------------------------------------
+      // ----- SPM READ -----
       SPM_READ: begin
-        sp_en[sp_way_lp]     = 1'b1;
-        sp_v[sp_way_lp]      = 1'b1;
-        sp_w[sp_way_lp]      = 1'b0;
-        sp_addr[sp_way_lp]   = op_cnt_r[0+:lg_data_mem_els_lp];
+        sp_en[sp_way_lp]   = 1'b1;
+        sp_v[sp_way_lp]    = 1'b1;
+        sp_w[sp_way_lp]    = 1'b0;
+        sp_addr[sp_way_lp] = op_cnt_r[0+:lg_sp_bank_els_lp];
         if (op_cnt_r == num_spm_ops_lp - 1) begin phase_n = SPM_READ_GAP; gap_cnt_n = 0; end
         else op_cnt_n = op_cnt_r + 1;
       end
@@ -448,16 +408,10 @@ module testbench();
   end
 
   // -------------------------------------------------------
-  // High-level operation type (for power annotation)
+  // Operation type enum (for power annotation)
   // -------------------------------------------------------
   typedef enum logic [2:0] {
-    OP_INIT,
-    OP_WARMUP,
-    OP_WRITE,
-    OP_READ,
-    OP_SPM_WRITE,
-    OP_SPM_READ,
-    OP_IDLE
+    OP_INIT, OP_WARMUP, OP_WRITE, OP_READ, OP_SPM_WRITE, OP_SPM_READ, OP_IDLE
   } op_type_e;
 
   op_type_e op_type;
@@ -476,6 +430,9 @@ module testbench();
     endcase
   end
 
+  // -------------------------------------------------------
+  // Sequential update
+  // -------------------------------------------------------
   always_ff @(posedge clk) begin
     if (reset) begin
       phase_r <= RESET_WAIT; op_cnt_r <= 0; gap_cnt_r <= 0;
@@ -492,33 +449,33 @@ module testbench();
   // -------------------------------------------------------
   always_ff @(posedge clk) begin
     if (!reset) begin
-      if (phase_r == TAGST_DRAIN && phase_n == WARMUP)
+      if (phase_r == TAGST_DRAIN  && phase_n == WARMUP)
         $display("[PHASE_WARMUP_START] cycle=%0d  lines=%0d", cycle_cnt, num_warmup_lines_lp);
-      if (phase_r == WARMUP && phase_n == WARMUP_GAP)
+      if (phase_r == WARMUP       && phase_n == WARMUP_GAP)
         $display("[PHASE_WARMUP_END]   cycle=%0d  sent=%0d recv=%0d", cycle_cnt, send_cnt_n, recv_cnt_n);
-      if (phase_r == WARMUP_GAP && phase_n == EVICT)
+      if (phase_r == WARMUP_GAP   && phase_n == EVICT)
         $display("[PHASE_EVICT_START]  cycle=%0d  ops=%0d", cycle_cnt, num_evict_ops_lp);
-      if (phase_r == EVICT && phase_n == EVICT_GAP)
+      if (phase_r == EVICT        && phase_n == EVICT_GAP)
         $display("[PHASE_EVICT_END]    cycle=%0d", cycle_cnt);
       if (phase_r == RE_WARMUP_GAP && phase_n == WRITE)
         $display("[PHASE_WRITE_START]  cycle=%0d  ops=%0d", cycle_cnt, num_write_ops_lp);
-      if (phase_r == WRITE && phase_n == WRITE_GAP)
+      if (phase_r == WRITE        && phase_n == WRITE_GAP)
         $display("[PHASE_WRITE_END]    cycle=%0d  sent=%0d recv=%0d", cycle_cnt, send_cnt_n, recv_cnt_n);
-      if (phase_r == WRITE_GAP && phase_n == READ)
+      if (phase_r == WRITE_GAP    && phase_n == READ)
         $display("[PHASE_READ_START]   cycle=%0d  ops=%0d", cycle_cnt, num_read_ops_lp);
-      if (phase_r == READ && phase_n == READ_GAP)
+      if (phase_r == READ         && phase_n == READ_GAP)
         $display("[PHASE_READ_END]     cycle=%0d  sent=%0d recv=%0d", cycle_cnt, send_cnt_n, recv_cnt_n);
-      if (phase_r == READ_GAP && phase_n == SPM_WRITE)
+      if (phase_r == READ_GAP     && phase_n == SPM_WRITE)
         $display("[PHASE_SPM_WR_START] cycle=%0d  ops=%0d  bank=%0d", cycle_cnt, num_spm_ops_lp, sp_way_lp);
-      if (phase_r == SPM_WRITE && phase_n == SPM_WRITE_GAP)
+      if (phase_r == SPM_WRITE    && phase_n == SPM_WRITE_GAP)
         $display("[PHASE_SPM_WR_END]   cycle=%0d", cycle_cnt);
       if (phase_r == SPM_WRITE_GAP && phase_n == SPM_READ)
         $display("[PHASE_SPM_RD_START] cycle=%0d  ops=%0d  bank=%0d", cycle_cnt, num_spm_ops_lp, sp_way_lp);
-      if (phase_r == SPM_READ && phase_n == SPM_READ_GAP)
+      if (phase_r == SPM_READ     && phase_n == SPM_READ_GAP)
         $display("[PHASE_SPM_RD_END]   cycle=%0d", cycle_cnt);
       if (phase_r == SPM_READ_GAP && phase_n == IDLE)
         $display("[PHASE_IDLE_START]   cycle=%0d  cycles=%0d", cycle_cnt, num_idle_cycles_lp);
-      if (phase_r == IDLE && phase_n == DONE)
+      if (phase_r == IDLE         && phase_n == DONE)
         $display("[PHASE_IDLE_END]     cycle=%0d", cycle_cnt);
     end
   end
@@ -531,7 +488,7 @@ module testbench();
   end
 
   // -------------------------------------------------------
-  // Read data monitor (cache phases)
+  // Cache read monitor
   // -------------------------------------------------------
   integer phase_resp_cnt_r;
   always_ff @(posedge clk) begin
@@ -548,7 +505,7 @@ module testbench();
   end
 
   // -------------------------------------------------------
-  // SPM read data monitor
+  // SPM read monitor
   // -------------------------------------------------------
   integer spm_rd_cnt_r;
   always_ff @(posedge clk) begin
