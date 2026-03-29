@@ -524,9 +524,49 @@ module testbench();
 
   always_ff @(posedge clk) begin
     if (!reset && v_lo && yumi_li) begin
-      if (phase_resp_cnt_r < 5 && (phase_r == WARMUP || phase_r == WRITE || phase_r == READ || phase_r == EVICT))
+      if (phase_resp_cnt_r < 3 && (phase_r == WARMUP || phase_r == WRITE || phase_r == READ || phase_r == EVICT))
         $display("  [RESP] #%0d data=0x%016h cycle=%0d phase=%s", phase_resp_cnt_r, data_lo, cycle_cnt, phase_r.name());
     end
+  end
+
+  // -------------------------------------------------------
+  // Data correctness check (shadow memory)
+  // -------------------------------------------------------
+  logic [data_width_p-1:0] shadow_mem [num_warmup_lines_lp-1:0];
+  integer error_cnt;
+
+  // WRITE phase: record LFSR value written to each address
+  always_ff @(posedge clk) begin
+    if (phase_r == WRITE && yumi_lo)
+      shadow_mem[op_cnt_r % num_warmup_lines_lp] <= lfsr_r;
+  end
+
+  // READ phase: compare read data against shadow memory
+  // READ responses arrive in order; use a separate counter to track which entry to check
+  integer rd_check_idx_r;
+  always_ff @(posedge clk) begin
+    if (reset)
+      rd_check_idx_r <= 0;
+    else if (phase_r == WRITE_GAP && phase_n == READ)
+      rd_check_idx_r <= 0;
+    else if (phase_r == READ && v_lo && yumi_li)
+      rd_check_idx_r <= rd_check_idx_r + 1;
+  end
+
+  always_ff @(posedge clk) begin
+    if (reset) error_cnt <= 0;
+    else if (phase_r == READ && v_lo && yumi_li) begin
+      if (data_lo !== shadow_mem[rd_check_idx_r % num_warmup_lines_lp]) begin
+        $error("[CHECK FAIL] READ #%0d: got=0x%016h exp=0x%016h cycle=%0d",
+          rd_check_idx_r, data_lo, shadow_mem[rd_check_idx_r % num_warmup_lines_lp], cycle_cnt);
+        error_cnt <= error_cnt + 1;
+      end
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if (phase_r == READ && phase_n == READ_GAP)
+      $display("[CHECK] READ phase done: %0d errors out of %0d reads", error_cnt, num_read_ops_lp);
   end
 
   // -------------------------------------------------------

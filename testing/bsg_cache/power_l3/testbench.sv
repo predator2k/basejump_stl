@@ -427,6 +427,45 @@ module testbench();
     end
   end
 
+  // -------------------------------------------------------
+  // Data correctness check (shadow memory)
+  // -------------------------------------------------------
+  logic [data_width_p-1:0] shadow_mem [num_warmup_lines_lp-1:0];
+  integer error_cnt;
+
+  // WRITE phase: record LFSR value written to each address
+  always_ff @(posedge clk) begin
+    if (phase_r == WRITE && yumi_lo)
+      shadow_mem[op_cnt_r % num_warmup_lines_lp] <= lfsr_r;
+  end
+
+  // READ phase: compare read data against shadow memory
+  integer rd_check_idx_r;
+  always_ff @(posedge clk) begin
+    if (reset)
+      rd_check_idx_r <= 0;
+    else if (phase_r == WRITE_GAP && phase_n == READ)
+      rd_check_idx_r <= 0;
+    else if (phase_r == READ && v_lo && yumi_li)
+      rd_check_idx_r <= rd_check_idx_r + 1;
+  end
+
+  always_ff @(posedge clk) begin
+    if (reset) error_cnt <= 0;
+    else if (phase_r == READ && v_lo && yumi_li) begin
+      if (data_lo !== shadow_mem[rd_check_idx_r % num_warmup_lines_lp]) begin
+        $error("[CHECK FAIL] READ #%0d: got=0x%016h exp=0x%016h cycle=%0d",
+          rd_check_idx_r, data_lo, shadow_mem[rd_check_idx_r % num_warmup_lines_lp], cycle_cnt);
+        error_cnt <= error_cnt + 1;
+      end
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if (phase_r == READ && phase_n == READ_GAP)
+      $display("[CHECK] READ phase done: %0d errors out of %0d reads", error_cnt, num_read_ops_lp);
+  end
+
 `ifdef FSDB
   initial begin
     $fsdbDumpfile("bsg_cache_l3_pwr.fsdb");
