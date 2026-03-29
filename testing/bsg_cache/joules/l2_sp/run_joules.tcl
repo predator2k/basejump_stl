@@ -44,7 +44,7 @@ set rtl_files [list \
     {*}$RTL_BSG_CACHE_CORE \
     $BSG_STL/bsg_cache/bsg_cache_sp_data_mem.sv \
     $BSG_STL/bsg_cache/bsg_cache_sp.sv \
-    $BSG_STL/testing/bsg_cache/power_l2_sp/bsg_cache_l2_spm.sv \
+    $BSG_STL/bsg_cache/bsg_cache_l2_spm.sv \
 ]
 
 read_hdl -sv $rtl_files

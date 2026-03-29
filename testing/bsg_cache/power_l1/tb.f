@@ -6,8 +6,8 @@
 -f $TB_DIR/synth.f
 
 // Additional include directories
-+incdir+$BSG_STL/bsg_cache
-+incdir+$BSG_STL/bsg_misc
+// +incdir+$BSG_STL/bsg_cache
+// +incdir+$BSG_STL/bsg_misc
 
 // ------- Testbench support -------
 $BSG_STL/bsg_test/bsg_nonsynth_clock_gen.sv

@@ -4,7 +4,7 @@
 
 // Include directories
 +incdir+$BSG_STL/bsg_misc
-+incdir+$BSG_STL/bsg_cache
+// +incdir+$BSG_STL/bsg_cache
 
 // Package
 $BSG_STL/bsg_cache/bsg_cache_pkg.sv
@@ -58,3 +58,5 @@ $BSG_STL/bsg_cache/bsg_cache_miss.sv
 $BSG_STL/bsg_cache/bsg_cache_dma.sv
 $BSG_STL/bsg_cache/bsg_cache_sp_data_mem.sv
 $BSG_STL/bsg_cache/bsg_cache_sp.sv
+$BSG_STL/bsg_cache/bsg_cache_l2_spm.sv
+
