@@ -129,10 +129,8 @@ set RTL_BSG_CACHE_CORE [list \
     $BSG_STL/bsg_cache/bsg_cache_dma.sv \
 ]
 
-#-------------------------------------------------------------------------------
-# Clock period (ns) — matches testbench cycle_time_p=20 → 20ns → 50 MHz
-#-------------------------------------------------------------------------------
-set CLK_PERIOD 1.0
+
+set CLK_PERIOD 400
 
 #-------------------------------------------------------------------------------
 # Joules global settings
