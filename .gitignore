@@ -13,7 +13,7 @@ ucli.key
 *.pyc
 libdramsim3.so
 verdiLog
-novas.conf
+novas*
 *.fsdb
 *.daidir
 simv*
