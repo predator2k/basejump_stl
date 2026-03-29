@@ -44,16 +44,16 @@ module testbench();
 
   localparam dma_els_lp              = (num_lines_lp + 1) * block_size_in_words_p;
 
-  localparam num_write_ops_lp        = 2048;
-  localparam num_read_ops_lp         = 2048;
+  localparam num_write_ops_lp        = 20480;
+  localparam num_read_ops_lp         = 20480;
 
   // SPM bank geometry
   localparam sp_bank_els_lp          = sets_p * block_size_in_words_p;
   localparam lg_sp_bank_els_lp       = `BSG_SAFE_CLOG2(sp_bank_els_lp);
   localparam sp_mask_width_lp        = (data_width_p >> 3);
-  localparam num_spm_ops_lp          = 4096;
+  localparam num_spm_ops_lp          = 40960;
 
-  localparam num_idle_cycles_lp      = 500;
+  localparam num_idle_cycles_lp      = 1000;
   localparam phase_gap_cycles_lp     = 100;
 
   // TAGST addressing helpers

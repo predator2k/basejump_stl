@@ -44,9 +44,9 @@ module testbench();
   // DMA backing memory: cover warmup range + eviction addresses
   localparam dma_els_lp              = (num_lines_lp + 1) * block_size_in_words_p;
 
-  localparam num_write_ops_lp        = 1024;
-  localparam num_read_ops_lp         = 1024;
-  localparam num_idle_cycles_lp      = 500;
+  localparam num_write_ops_lp        = 10240;
+  localparam num_read_ops_lp         = 10240;
+  localparam num_idle_cycles_lp      = 1000;
   localparam phase_gap_cycles_lp     = 100;
 
   // Address field widths for TAGST addressing
