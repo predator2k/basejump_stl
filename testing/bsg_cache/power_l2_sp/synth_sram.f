@@ -2,8 +2,8 @@
 // bsg_cache_sp L2 (512KB, 8-way) - Synthesis Filelist (VCS)
 // =========================================================
 
-// Include directories
-+incdir+$BSG_STL/bsg_misc
+// Include directories/
+//+incdir+$BSG_STL/bsg_misc
 // +incdir+$BSG_STL/bsg_cache
 
 // Package
