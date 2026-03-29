@@ -15,5 +15,9 @@ vcs -full64 -timescale=1ns/1ps -sverilog -f ${TB_DIR}/tb_sram.f \
     -debug_access+pp+all -kdb -lca +vpi \
     -o ${TB_DIR}/simv_sram
 
-# Run
+# Run simulation (generates FSDB)
+cd ${TB_DIR}
 ${TB_DIR}/simv_sram -no_save
+
+# Convert FSDB to VCD (strip SRAM model internals)
+fsdb2vcd bsg_cache_l1_pwr.fsdb -o bsg_cache_l1_pwr.vcd

@@ -9,7 +9,7 @@ source $SCRIPT_DIR/../common_setup.tcl
 
 set design      bsg_cache_l1
 set design_name l1
-set STIM        $BSG_STL/testing/bsg_cache/power_l1/bsg_cache_l1_pwr.fsdb
+set STIM        $BSG_STL/testing/bsg_cache/power_l1/bsg_cache_l1_pwr.vcd
 
 ::legacy::set_attribute information_level 9 /
 
@@ -117,4 +117,4 @@ plot_power_profile \
     -by_category memory register logic clock total
 
 puts "joules_l1.tcl completed."
-exit
+

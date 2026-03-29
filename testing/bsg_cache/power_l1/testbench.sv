@@ -570,12 +570,12 @@ module testbench();
   end
 
   // -------------------------------------------------------
-  // FSDB dump
+  // Waveform dump
   // -------------------------------------------------------
 `ifdef FSDB
   initial begin
     $fsdbDumpfile("bsg_cache_l1_pwr.fsdb");
-    $fsdbDumpvars("+all");
+    $fsdbDumpvars(0, DUT);
   end
 `endif
 

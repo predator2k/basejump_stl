@@ -469,7 +469,7 @@ module testbench();
 `ifdef FSDB
   initial begin
     $fsdbDumpfile("bsg_cache_l3_pwr.fsdb");
-    $fsdbDumpvars("+all");
+    $fsdbDumpvars(0, DUT);
   end
 `endif
 

@@ -1,6 +1,3 @@
-# Use newer Verdi FSDB reader
-set env(VERDI_HOME) /eda/installed_tools/verdi/X-2025.06
-set env(NOVAS_HOME) /eda/installed_tools/verdi/X-2025.06
 
 #-------------------------------------------------------------------------------
 # common_setup.tcl — shared PDK / library / path setup for Joules
