@@ -4,7 +4,7 @@
 
 // Include directories/
 +incdir+$BSG_STL/bsg_misc
-// +incdir+$BSG_STL/bsg_cache
++incdir+$BSG_STL/bsg_cache
 
 // Package
 $BSG_STL/bsg_cache/bsg_cache_pkg.sv

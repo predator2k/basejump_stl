@@ -4,7 +4,7 @@
 
 // Include directories/
 +incdir+$BSG_STL/bsg_misc
-// +incdir+$BSG_STL/bsg_cache
++incdir+$BSG_STL/bsg_cache
 
 // Package
 $BSG_STL/bsg_cache/bsg_cache_pkg.sv
@@ -50,7 +50,6 @@ $BSG_STL/bsg_dataflow/bsg_fifo_1r1w_small.sv
 $BSG_STL/bsg_dataflow/bsg_two_fifo.sv
 
 // ------- bsg_cache (DUT) -------
-$BSG_STL/bsg_cache/bsg_cache.svh
 $BSG_STL/bsg_cache/bsg_cache_decode.sv
 $BSG_STL/bsg_cache/bsg_cache_buffer_queue.sv
 $BSG_STL/bsg_cache/bsg_cache_sbuf.sv
