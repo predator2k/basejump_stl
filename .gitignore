@@ -17,3 +17,5 @@ novas.conf
 *.fsdb
 *.daidir
 simv*
+joules_work
+*tstamp
