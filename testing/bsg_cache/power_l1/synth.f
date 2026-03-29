@@ -3,7 +3,7 @@
 // =========================================================
 
 // // Include directories/
-//+incdir+$BSG_STL/bsg_misc
++incdir+$BSG_STL/bsg_misc
 // +incdir+$BSG_STL/bsg_cache
 
 // Package
