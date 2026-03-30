@@ -46,7 +46,7 @@ set rtl_files [list \
     $BSG_STL/bsg_cache/bsg_cache_l2.sv \
 ]
 
-read_hdl -sv $rtl_files
+read_hdl -define SYNTHESIS -sv $rtl_files
 
 #-------------------------------------------------------------------------------
 # Elaborate
