@@ -111,15 +111,7 @@ module testbench();
   // -------------------------------------------------------
   // DUT
   // -------------------------------------------------------
-  bsg_cache_l2_spm #(
-    .addr_width_p(addr_width_p)
-    ,.data_width_p(data_width_p)
-    ,.block_size_in_words_p(block_size_in_words_p)
-    ,.sets_p(sets_p)
-    ,.ways_p(ways_p)
-    ,.word_tracking_p(word_tracking_p)
-    ,.amo_support_p(amo_support_level_arithmetic_lp)
-  ) DUT (
+  bsg_cache_l2_spm DUT (
     .clk_i(clk), .reset_i(reset)
     ,.cache_pkt_i(cache_pkt), .v_i(v_li), .yumi_o(yumi_lo)
     ,.data_o(data_lo), .v_o(v_lo), .yumi_i(yumi_li)
@@ -564,7 +556,7 @@ module testbench();
 `ifdef FSDB
   initial begin
     $fsdbDumpfile("bsg_cache_l2_sp.fsdb");
-    $fsdbDumpvars(0, DUT);
+    $fsdbDumpvars(0, "+all");
   end
 `endif
 

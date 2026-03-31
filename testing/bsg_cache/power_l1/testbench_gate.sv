@@ -115,15 +115,7 @@ module testbench();
   // -------------------------------------------------------
   // DUT
   // -------------------------------------------------------
-  bsg_cache #(
-    .addr_width_p(addr_width_p)
-    ,.data_width_p(data_width_p)
-    ,.block_size_in_words_p(block_size_in_words_p)
-    ,.sets_p(sets_p)
-    ,.ways_p(ways_p)
-    ,.word_tracking_p(word_tracking_p)
-    ,.amo_support_p(amo_support_level_arithmetic_lp)
-  ) DUT (
+  bsg_cache_l1 DUT (
     .clk_i(clk)
     ,.reset_i(reset)
 
