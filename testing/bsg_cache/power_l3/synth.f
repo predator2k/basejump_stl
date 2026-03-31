@@ -58,5 +58,7 @@ $BSG_STL/bsg_cache/bsg_cache_sbuf.sv
 $BSG_STL/bsg_cache/bsg_cache_tbuf.sv
 $BSG_STL/bsg_cache/bsg_cache_miss.sv
 $BSG_STL/bsg_cache/bsg_cache_dma.sv
+$BSG_STL/bsg_cache/bsg_cache_serial_data_mem.sv
+$BSG_STL/bsg_cache/bsg_cache_serial.sv
 $BSG_STL/bsg_cache/bsg_cache.sv
 $BSG_STL/bsg_cache/bsg_cache_l3.sv

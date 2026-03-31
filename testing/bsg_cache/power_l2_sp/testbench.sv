@@ -25,7 +25,7 @@ module testbench();
   // -------------------------------------------------------
   // Parameters
   // -------------------------------------------------------
-  localparam addr_width_p            = 40;
+  localparam addr_width_p            = 48;
   localparam data_width_p            = 64;
   localparam block_size_in_words_p   = 8;
   localparam sets_p                  = 1024;

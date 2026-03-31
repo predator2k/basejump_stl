@@ -3,7 +3,7 @@
 
 module bsg_cache_l2
   import bsg_cache_pkg::*;
-  #(parameter addr_width_p = 40
+  #(parameter addr_width_p = 48
     ,parameter data_width_p = 64
     // L2: 512KB, 8-way, 64B cacheline
     // sets = 512KB / (8 * 64B) = 1024
@@ -45,7 +45,7 @@ module bsg_cache_l2
     ,output logic                                  v_we_o
   );
 
-  bsg_cache #(
+  bsg_cache_serial #(
     .addr_width_p(addr_width_p)
     ,.data_width_p(data_width_p)
     ,.block_size_in_words_p(block_size_in_words_p)

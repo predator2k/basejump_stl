@@ -24,7 +24,7 @@ module testbench();
   // -------------------------------------------------------
   // Parameters
   // -------------------------------------------------------
-  localparam addr_width_p            = 40;
+  localparam addr_width_p            = 48;
   localparam data_width_p            = 64;
   localparam block_size_in_words_p   = 8;
   localparam sets_p                  = 1024;
@@ -113,15 +113,7 @@ module testbench();
   // -------------------------------------------------------
   // DUT
   // -------------------------------------------------------
-  bsg_cache #(
-    .addr_width_p(addr_width_p)
-    ,.data_width_p(data_width_p)
-    ,.block_size_in_words_p(block_size_in_words_p)
-    ,.sets_p(sets_p)
-    ,.ways_p(ways_p)
-    ,.word_tracking_p(word_tracking_p)
-    ,.amo_support_p(amo_support_level_arithmetic_lp)
-  ) DUT (
+  bsg_cache_l2 DUT (
     .clk_i(clk)
     ,.reset_i(reset)
 

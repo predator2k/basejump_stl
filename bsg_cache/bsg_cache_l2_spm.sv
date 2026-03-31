@@ -3,11 +3,10 @@
 
 module bsg_cache_l2_spm
   import bsg_cache_pkg::*;
-  #(parameter addr_width_p = 40
+  #(parameter addr_width_p = 48
     ,parameter data_width_p = 64
     // L2: 512KB, 8-way, 64B cacheline
-    // sets = 512KB / (8 * 64B) = 1024
-    ,parameter block_size_in_words_p = 8  // 64B / 8B = 8 words
+    ,parameter block_size_in_words_p = 8
     ,parameter sets_p = 1024
     ,parameter ways_p = 8
     ,parameter word_tracking_p = 0
@@ -20,6 +19,7 @@ module bsg_cache_l2_spm
     ,localparam data_mem_els_lp = sets_p * block_size_in_words_p * (data_width_p / dma_data_width_p)
     ,localparam lg_data_mem_els_lp = `BSG_SAFE_CLOG2(data_mem_els_lp)
     ,localparam dma_data_mask_width_lp = (dma_data_width_p >> 3)
+    ,localparam lg_ways_lp = `BSG_SAFE_CLOG2(ways_p)
   )
   (
     input                                          clk_i
@@ -47,7 +47,7 @@ module bsg_cache_l2_spm
 
     ,output logic                                  v_we_o
 
-    // per-way scratchpad interface
+    // Per-way scratchpad interface
     ,input  [ways_p-1:0]                                   sp_en_i
     ,input  [ways_p-1:0]                                   sp_v_i
     ,input  [ways_p-1:0]                                   sp_w_i
@@ -55,8 +55,19 @@ module bsg_cache_l2_spm
     ,input  [ways_p-1:0][dma_data_width_p-1:0]             sp_data_i
     ,input  [ways_p-1:0][dma_data_mask_width_lp-1:0]       sp_w_mask_i
     ,output [ways_p-1:0][dma_data_width_p-1:0]             sp_data_o
+
+    // 8-to-2 MUX: select 2 of 8 SP data outputs to top
+    ,input  [lg_ways_lp-1:0]                               sp_mux_sel0_i
+    ,input  [lg_ways_lp-1:0]                               sp_mux_sel1_i
+    ,output logic [dma_data_width_p-1:0]                    sp_data_muxed0_o
+    ,output logic [dma_data_width_p-1:0]                    sp_data_muxed1_o
   );
 
+  // -------------------------------------------------------
+  // Cache core (serial tag-data with scratchpad)
+  // TODO: instantiate bsg_cache_serial_sp when complete
+  // For now, instantiate bsg_cache_sp (parallel) as placeholder
+  // -------------------------------------------------------
   bsg_cache_sp #(
     .addr_width_p(addr_width_p)
     ,.data_width_p(data_width_p)
@@ -100,5 +111,35 @@ module bsg_cache_l2_spm
     ,.sp_w_mask_i(sp_w_mask_i)
     ,.sp_data_o(sp_data_o)
   );
+
+  // -------------------------------------------------------
+  // 8-to-2 MUX: independently select 2 of 8 SP data outputs
+  // Output registered (1-cycle latency)
+  // -------------------------------------------------------
+  logic [dma_data_width_p-1:0] sp_data_muxed0_comb;
+  logic [dma_data_width_p-1:0] sp_data_muxed1_comb;
+
+  bsg_mux #(
+    .width_p(dma_data_width_p)
+   ,.els_p(ways_p)
+  ) sp_mux0 (
+    .data_i(sp_data_o)
+   ,.sel_i(sp_mux_sel0_i)
+   ,.data_o(sp_data_muxed0_comb)
+  );
+
+  bsg_mux #(
+    .width_p(dma_data_width_p)
+   ,.els_p(ways_p)
+  ) sp_mux1 (
+    .data_i(sp_data_o)
+   ,.sel_i(sp_mux_sel1_i)
+   ,.data_o(sp_data_muxed1_comb)
+  );
+
+  always_ff @(posedge clk_i) begin
+    sp_data_muxed0_o <= sp_data_muxed0_comb;
+    sp_data_muxed1_o <= sp_data_muxed1_comb;
+  end
 
 endmodule
