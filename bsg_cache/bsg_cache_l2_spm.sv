@@ -65,10 +65,8 @@ module bsg_cache_l2_spm
 
   // -------------------------------------------------------
   // Cache core (serial tag-data with scratchpad)
-  // TODO: instantiate bsg_cache_serial_sp when complete
-  // For now, instantiate bsg_cache_sp (parallel) as placeholder
   // -------------------------------------------------------
-  bsg_cache_sp #(
+  bsg_cache_serial_sp #(
     .addr_width_p(addr_width_p)
     ,.data_width_p(data_width_p)
     ,.block_size_in_words_p(block_size_in_words_p)

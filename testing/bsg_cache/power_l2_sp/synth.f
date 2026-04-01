@@ -51,13 +51,13 @@ $BSG_STL/bsg_dataflow/bsg_fifo_1r1w_small_hardened.sv
 $BSG_STL/bsg_dataflow/bsg_fifo_1r1w_small.sv
 $BSG_STL/bsg_dataflow/bsg_two_fifo.sv
 
-// ------- bsg_cache_sp (DUT) -------
+// ------- bsg_cache_serial_sp (DUT) -------
 $BSG_STL/bsg_cache/bsg_cache_decode.sv
 $BSG_STL/bsg_cache/bsg_cache_buffer_queue.sv
 $BSG_STL/bsg_cache/bsg_cache_sbuf.sv
 $BSG_STL/bsg_cache/bsg_cache_tbuf.sv
 $BSG_STL/bsg_cache/bsg_cache_miss.sv
 $BSG_STL/bsg_cache/bsg_cache_dma.sv
-$BSG_STL/bsg_cache/bsg_cache_sp_data_mem.sv
-$BSG_STL/bsg_cache/bsg_cache_sp.sv
+$BSG_STL/bsg_cache/bsg_cache_serial_sp_data_mem.sv
+$BSG_STL/bsg_cache/bsg_cache_serial_sp.sv
 $BSG_STL/bsg_cache/bsg_cache_l2_spm.sv

@@ -13,7 +13,7 @@ vcs -full64 -timescale=1ns/1ps -sverilog \
     +nospecify +notimingchecks \
     -debug_access+pp+all -kdb -lca +vpi \
     $BSG_STL/bsg_cache/bsg_cache_pkg.sv \
-    /home/mhnie/develop/cacheflex/l2/snps_pnr/rm_icc2/work/bsg_cache_l2.v.gz \
+    /home/mhnie/develop/cacheflex/l1d/snps_pnr/rm_icc2/work/bsg_cache_l1d.v.gz \
     -v $SRAM_MODEL2/IN12LP_S1DB_W02048B256M04S2_LB.v \
     -v $SRAM_MODEL2/IN12LP_S1DB_W02048B064M04S2_LB.v \
     -v $SRAM_MODEL2/IN12LP_S1DB_W08192B064M04S8_LB.v \

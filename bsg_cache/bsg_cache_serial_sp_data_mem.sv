@@ -97,11 +97,21 @@ module bsg_cache_serial_sp_data_mem
     assign sp_data_o[i] = bank_data_lo[i];
   end
 
-  // --- Pipeline read output: mux the hit bank ---
-  assign pipe_data_o = bank_data_lo[pipe_way_id_i];
+  // --- Pipeline read output: latch bank index when read fires ---
+  logic [lg_ways_lp-1:0] pipe_way_id_r;
+  always_ff @(posedge clk_i) begin
+    if (pipe_v_i)
+      pipe_way_id_r <= pipe_way_id_i;
+  end
+  assign pipe_data_o = bank_data_lo[pipe_way_id_r];
 
-  // --- DMA read output ---
-  assign dma_rd_data_o = bank_data_lo[dma_rd_way_id_i];
+  // --- DMA read output: latch bank index when DMA read fires ---
+  logic [lg_ways_lp-1:0] dma_rd_way_id_r;
+  always_ff @(posedge clk_i) begin
+    if (dma_rd_v_i)
+      dma_rd_way_id_r <= dma_rd_way_id_i;
+  end
+  assign dma_rd_data_o = bank_data_lo[dma_rd_way_id_r];
 
 endmodule
 

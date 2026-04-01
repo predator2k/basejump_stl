@@ -3,8 +3,8 @@ set -euo pipefail
 
 BSG_STL=/home/mhnie/develop/basejump_stl
 TB_DIR=$(cd "$(dirname "$0")" && pwd)
+SRAM_MODEL2=/home/mhnie/develop/cacheflex_memory2/model/verilog
 
-# Compile: netlist + SRAM models (library) + stdcell models (library) + testbench
 vcs -full64 -timescale=1ns/1ps -sverilog \
     +incdir+$BSG_STL/bsg_misc \
     +incdir+$BSG_STL/bsg_cache \
@@ -13,17 +13,17 @@ vcs -full64 -timescale=1ns/1ps -sverilog \
     +nospecify +notimingchecks \
     -debug_access+pp+all -kdb -lca +vpi \
     $BSG_STL/bsg_cache/bsg_cache_pkg.sv \
-    /home/mhnie/develop/cacheflex/l1/snps_pnr/rm_icc2/work/bsg_cache_l1.v.gz \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W02048B128M04S2_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W08192B128M04S8_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W08192B064M04S8_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W01024B104M04S2_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W04096B192M04S4_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_S1PB_W04096B032M04S4_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_R1PB_W00256B112M02S1_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_R1PB_W00256B007M02S1_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_R1PB_W01024B015M04S1_HB.v \
-    -v /home/mhnie/develop/cacheflex_memory/model/verilog/IN12LP_R1PB_W01024B128M02S2_H.v \
+    /home/mhnie/develop/cacheflex/l1i/snps_pnr/rm_icc2/work/bsg_cache_l1i.v.gz \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W02048B256M04S2_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W02048B064M04S2_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W08192B064M04S8_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W08192B128M04S8_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W01024B136M04S2_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W04096B256M04S4_LB.v \
+    -v $SRAM_MODEL2/IN12LP_S1DB_W04096B032M04S4_LB.v \
+    -v $SRAM_MODEL2/IN12LP_R1DB_W00256B144M02S1_LB.v \
+    -v $SRAM_MODEL2/IN12LP_R1DB_W00256B008M02S1_LB.v \
+    -v $SRAM_MODEL2/IN12LP_R1DB_W01024B015M02S2_LB.v \
     /mnt/ssd/pdk/gf12/v-logic_in_gf12lp_sc7p5t_84cpp_base_ssc14l/IN12LP_SC7P5T_84CPP_BASE_SSC14L_FDK_RELV00R60/model/verilog/prim.v \
     /mnt/ssd/pdk/gf12/v-logic_in_gf12lp_sc7p5t_84cpp_base_ssc14sl/IN12LP_SC7P5T_84CPP_BASE_SSC14SL_FDK_RELV00R60/model/verilog/prim.v \
     /mnt/ssd/pdk/gf12/v-logic_in_gf12lp_sc7p5t_84cpp_base_ssc14r/IN12LP_SC7P5T_84CPP_BASE_SSC14R_FDK_RELV00R60/model/verilog/prim.v \
@@ -38,6 +38,5 @@ vcs -full64 -timescale=1ns/1ps -sverilog \
     -top testbench \
     -o ${TB_DIR}/simv_gate
 
-# Run
 cd ${TB_DIR}
 ${TB_DIR}/simv_gate -no_save
