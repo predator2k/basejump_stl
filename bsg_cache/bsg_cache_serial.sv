@@ -255,6 +255,10 @@ module bsg_cache_serial
   logic [dma_data_width_p-1:0] pipe_data_lo;
   logic [dma_data_width_p-1:0] dma_rd_data_lo;
 
+  // Forward declarations (used by data_mem ports, defined later by miss/dma)
+  logic [lg_ways_lp-1:0] dma_way_lo;
+  logic [lg_data_mem_els_lp-1:0] dma_data_mem_addr_lo;
+
   logic pipe_data_mem_v;
   logic [lg_ways_lp-1:0] pipe_data_mem_way_id;
   logic [lg_data_mem_els_lp-1:0] pipe_data_mem_addr;
@@ -511,7 +515,6 @@ end
   //
   bsg_cache_dma_cmd_e dma_cmd_lo;
   logic [addr_width_p-1:0] dma_addr_lo;
-  logic [lg_ways_lp-1:0] dma_way_lo;
   logic dma_done_li;
 
   logic recover_lo;
@@ -608,7 +611,6 @@ end
   logic [data_width_p-1:0] snoop_word_lo;
   logic dma_data_mem_v_lo;
   logic dma_data_mem_w_lo;
-  logic [lg_data_mem_els_lp-1:0] dma_data_mem_addr_lo;
   logic [ways_p-1:0][dma_data_mask_width_lp-1:0] dma_data_mem_w_mask_lo;
   logic [ways_p-1:0][dma_data_width_p-1:0] dma_data_mem_data_lo;
   logic dma_evict_lo;
